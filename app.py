@@ -5,26 +5,25 @@ import serial, time
 IRRIGATE = "1"
 UPDATE_TEMPERATURE = "2"
 UPDATE_HUMIDITY = "3"
-LAST_IRRIGATE = "4"
+GET_ACTUAL_DATA = "4"
 UPDATE_INTERVAL = "5"
-GET_TEMP_HUM = "6"
-ON_OFF_TEMPERATURE = "7"
-ON_OFF_HUMIDITY = "8"
+ON_OFF_TEMPERATURE = "6"
+ON_OFF_HUMIDITY = "7"
 
 app = Flask(__name__)
 CORS(app)
 
-ArduinoSerial = serial.Serial(port='/dev/cu.usbmodem112301', baudrate=9600, timeout=.1)
+# NOTE: this is the Mac Port: /dev/cu.usbmodem112301 should be changed for other devices
+ArduinoSerial = serial.Serial(port='/dev/cu.usbmodem112401', baudrate=9600, timeout=.1)
 time.sleep(2) 
 
 @app.route('/', methods=['GET'])
 def welcome():
   return "Hello world"
 
-  # /dev/cu.usbmodem112301
 
 @app.route('/configure-temperature', methods=['POST'])
-  #  Configurar humedad a la cual regar
+# Configurar humedad a la cual regar
 def configure_temperature():
   import time
 
@@ -40,12 +39,10 @@ def configure_temperature():
   # message = ArduinoSerial.readline().decode()
   # time.sleep(5) 
 
-  # print(message)
-
   return jsonify(data)
 
 @app.route('/configure-humidity', methods=['POST'])
-  #  Configurar humedad a la cual regar
+# Configurar humedad a la cual regar
 def configure_humidity():
   import time
 
@@ -63,7 +60,7 @@ def configure_humidity():
 
 
 @app.route('/configure-interval', methods=['POST'])
-  #  Configurar humedad a la cual regar
+# Configurar humedad a la cual regar
 def configure_interval():
   import time
 
@@ -80,43 +77,57 @@ def configure_interval():
   return jsonify(data)
 
 @app.route('/irrigate', methods=['POST'])
+# Regar
 def irrigate():
-  # Regar la planta basandose
   response = jsonify(message="Simple server is running")
 
   ArduinoSerial.write(IRRIGATE.encode('utf-8'))
 
   return response
 
-@app.route('/time', methods=['GET'])
-def time():
+
+@app.route('/current-data', methods=['GET'])
+# Retorna temperatura y humedad actual, y minutos desde el ultimo regado
+def current_data():
   import time
-  # Retorna minutos desde ultimo regado 
 
-  ArduinoSerial.write(LAST_IRRIGATE.encode('utf-8'))
+  ArduinoSerial.write(GET_ACTUAL_DATA.encode('utf-8'))
   time.sleep(5)
 
-  minutes = ArduinoSerial.readline().decode()
+  data = ArduinoSerial.readline().decode().split(";")
   time.sleep(5)
 
-  print(minutes)
-
-  response = jsonify(minutes)
+  response = jsonify(data)
 
   return response
 
+@app.route('/toggle-temperature', methods=['POST'])
+# Apaga/Enciende el control de temperatura
+def toggle_temperature():
+  data = request.get_json()
 
-# Merge this endpoint with the time one
-@app.route('/actualData', methods=['GET'])
-def actualData():
-  import time
+  toggle = data['toggle']
+  message = ON_OFF_TEMPERATURE + ":" + toggle
 
-  ArduinoSerial.write(GET_TEMP_HUM.encode('utf-8'))
-  time.sleep(3)
+  ArduinoSerial.write(message.encode('utf-8'))
 
-  data = ArduinoSerial.readline().decode().split(";");
+  response = jsonify(message="Turning temperature on/off")
 
-  return jsonify(data)
+  return response
+
+@app.route('/toggle-humidity', methods=['POST'])
+# Apaga/Enciende el control de humedad
+def toggle_humidity():
+  data = request.get_json()
+
+  toggle = data['toggle']
+  message = ON_OFF_HUMIDITY + ":" + toggle
+
+  ArduinoSerial.write(message.encode('utf-8'))
+
+  response = jsonify(message="Turning humidity on/off")
+
+  return response
 
 if __name__ == '__main__': 
   app.run(host='0.0.0.0', port=8080, debug=True)
